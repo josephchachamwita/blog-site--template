@@ -22,13 +22,25 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
+// --------------------------------------------
+//  CORS CONFIG
+// --------------------------------------------
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://blog-site-template-1.onrender.com",
+  "https://blog-site-template-pi.vercel.app"
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://blog-site-template-1.onrender.com",
-      "https://blog-site-template-pi.vercel.app"
-    ],
+    origin: function (origin, callback) {
+      // allow requests with no origin (like mobile apps, Postman)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
@@ -112,9 +124,13 @@ app.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
+    // -----------------------------
+    // COOKIE FIXES FOR CROSS-DOMAIN
+    // -----------------------------
     res.cookie("token", token, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none", // allows cross-site cookies
+      secure: true,     // HTTPS required
       maxAge: 24 * 60 * 60 * 1000,
     });
 
@@ -131,7 +147,7 @@ app.get("/current_user", verifyUser, (req, res) => {
 
 // LOGOUT
 app.get("/logout", (req, res) => {
-  res.clearCookie("token");
+  res.clearCookie("token", { sameSite: "none", secure: true });
   res.json({ message: "success" });
 });
 
@@ -267,7 +283,7 @@ app.delete("/deletepost/:id", verifyUser, async (req, res) => {
 });
 
 /* =====================================================
-   START SERVER  (REQUIRED FOR RENDER)
+   START SERVER
 ===================================================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
