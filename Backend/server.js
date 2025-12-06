@@ -26,7 +26,8 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://blog-site-template-1.onrender.com"
+      "https://blog-site-template-1.onrender.com",
+      "https://blog-site-template-pi.vercel.app"
     ],
     credentials: true,
   })
