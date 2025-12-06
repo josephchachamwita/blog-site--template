@@ -24,7 +24,10 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://blog-site-template-1.onrender.com"
+    ],
     credentials: true,
   })
 );
@@ -111,7 +114,7 @@ app.post("/login", async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
     res.json({ success: true, username: user.username, email: user.email });
@@ -120,7 +123,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// GET CURRENT USER
+// CURRENT USER
 app.get("/current_user", verifyUser, (req, res) => {
   res.json({ username: req.username, email: req.email });
 });
@@ -153,12 +156,11 @@ app.post("/create", verifyUser, upload.single("file"), async (req, res) => {
       author: user._id,
     });
 
-    // Return author's username as string
     res.json({
       status: "success",
       post: {
         ...post._doc,
-        author: user.username, // now author is actual username
+        author: user.username,
       },
     });
   } catch (err) {
@@ -237,7 +239,7 @@ app.put("/editpost/:id", verifyUser, upload.single("file"), async (req, res) => 
 
     res.json({
       ...updated._doc,
-      author: user.username, // return actual username
+      author: user.username,
     });
   } catch (err) {
     console.error(err);
@@ -264,18 +266,7 @@ app.delete("/deletepost/:id", verifyUser, async (req, res) => {
 });
 
 /* =====================================================
-   START SERVER
+   START SERVER  (REQUIRED FOR RENDER)
 ===================================================== */
-app.listen(3000, () => console.log("Server running on port 3000"));
-
-
-
-
-
-
-
-
-
-
-
-
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
