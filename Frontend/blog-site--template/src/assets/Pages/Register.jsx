@@ -24,7 +24,7 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const res = await axios.post('https://blog-site-template-1.onrender.com/register', formData, {
+       const res = await axios.post("https://blog-site-template-1.onrender.com/register", formData, {
         withCredentials: true
       });
 

@@ -15,9 +15,10 @@ const Post = () => {
   // Fetch single post
   useEffect(() => {
     axios
-      .get(`https://blog-site-template-1.onrender.com/getpostbyid/${id}`)
+      .get(`https://blog-site-template-1.onrender.com/getpostbyid/${id}`,{  withCredentials: true})
       .then((res) => setPost(res.data))
       .catch((err) => console.log(err));
+
   }, [id]);
 
   // Delete post
@@ -47,7 +48,7 @@ const Post = () => {
 
       {isOwner && (
         <div className="post-actions">
-          <Link to={`https://blog-site-template-1.onrender.com/editpost/${post._id}`}>
+          <Link to={`/editpost/${post._id}`}>
             <button>Edit</button>
           </Link>
           <button onClick={handleDelete}>Delete</button>
