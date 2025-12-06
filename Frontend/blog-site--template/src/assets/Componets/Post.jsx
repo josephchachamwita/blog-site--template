@@ -47,7 +47,7 @@ const Post = () => {
 
       {isOwner && (
         <div className="post-actions">
-          <Link to={`/editpost/${post._id}`}>
+          <Link to={`https://blog-site-template-1.onrender.com/editpost/${post._id}`}>
             <button>Edit</button>
           </Link>
           <button onClick={handleDelete}>Delete</button>

@@ -31,7 +31,7 @@ const Home = () => {
 
       <div className="posts-feed">
         {posts.map(post => (
-          <Link to={`/post/${post._id}`} className="post-item" key={post._id}>
+          <Link to={`https://blog-site-template-1.onrender.com/post/${post._id}`} className="post-item" key={post._id}>
             {post.imageUrl && (
               <img
                 src={post.imageUrl}
