@@ -27,15 +27,13 @@ app.use(cookieParser());
 // --------------------------------------------
 const allowedOrigins = [
   "http://localhost:5173",
-  "http://localhost:3000",
-  "https://blog-site-template-1.onrender.com",
-  "https://blog-site-template-pi.vercel.app"
+  "https://blog-site-template-pi.vercel.app",
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (like mobile apps, Postman)
+      // allow requests with no origin (Postman or curl)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -74,7 +72,7 @@ const verifyUser = (req, res, next) => {
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ message: "Token missing" });
 
-  jwt.verify(token, "jwt-secret-key", (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET || "jwt-secret-key", (err, decoded) => {
     if (err) return res.status(401).json({ message: "Invalid token" });
     req.email = decoded.email;
     req.username = decoded.username;
@@ -102,6 +100,7 @@ app.post("/register", async (req, res) => {
     await UserModel.create({ username, email, password: hashed });
     res.json({ message: "registered" });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Registration failed" });
   }
 });
@@ -109,7 +108,6 @@ app.post("/register", async (req, res) => {
 // LOGIN
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-
   try {
     const user = await UserModel.findOne({ email });
     if (!user)
@@ -121,7 +119,7 @@ app.post("/login", async (req, res) => {
 
     const token = jwt.sign(
       { email: user.email, username: user.username },
-      "jwt-secret-key",
+      process.env.JWT_SECRET || "jwt-secret-key",
       { expiresIn: "1d" }
     );
 
@@ -130,13 +128,14 @@ app.post("/login", async (req, res) => {
     // -----------------------------
     res.cookie("token", token, {
       httpOnly: true,
-      sameSite: "none", // allows cross-site cookies
-      secure: true,     // HTTPS required
+      sameSite: "none", // allow cross-site cookies
+      secure: true,     // required for HTTPS
       maxAge: 24 * 60 * 60 * 1000,
     });
 
     res.json({ success: true, username: user.username, email: user.email });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ success: false, message: "Login failed" });
   }
 });
@@ -194,17 +193,21 @@ app.get("/getposts", async (req, res) => {
 
     const formatted = await Promise.all(
       posts.map(async (post) => {
-        const author = await UserModel.findById(post.author).select("username");
+        let authorName = "Unknown";
+        if (post.author) {
+          const author = await UserModel.findById(post.author).select("username");
+          authorName = author?.username || "Unknown";
+        }
         return {
           ...post._doc,
-          author: author?.username || "Unknown",
+          author: authorName,
         };
       })
     );
 
     res.json(formatted);
   } catch (err) {
-    console.error(err);
+    console.error("GetPosts error:", err);
     res.status(500).json("Failed to fetch posts");
   }
 });
