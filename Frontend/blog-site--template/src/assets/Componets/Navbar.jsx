@@ -1,7 +1,6 @@
-
 import "./Navbar.css";
 import { DiCode } from "react-icons/di";
-import React, { useContext } from "react";
+import React, { useContext, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { userContext } from "../../App";
 import axios from "axios";
@@ -10,9 +9,36 @@ const Navbar = () => {
   const { username, setUser } = useContext(userContext);
   const navigate = useNavigate();
 
+  // 👇 keep user logged in on refresh
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const res = await axios.get(
+          "https://blog-site-template-1.onrender.com/current_user",
+          { withCredentials: true }
+        );
+
+        if (res.data?.username) {
+          setUser({
+            username: res.data.username,
+            email: res.data.email
+          });
+        }
+
+      } catch (err) {
+        // user not logged in → ignore
+      }
+    };
+
+    checkUser();
+  }, []);
+
   const handleLogout = async () => {
     try {
-      await axios.get("https://blog-site-template-1.onrender.com/logout", { withCredentials: true });
+      await axios.get(
+        "https://blog-site-template-1.onrender.com/logout",
+        { withCredentials: true }
+      );
       setUser({});
       navigate("/");
     } catch (err) {
@@ -30,7 +56,9 @@ const Navbar = () => {
 
       <div className="navbar-center">
         <Link to="/" className="nav-link">Home</Link>
-        {username && <Link to="/createPost" className="nav-link">Create Post</Link>}
+        {username && (
+          <Link to="/createPost" className="nav-link">Create Post</Link>
+        )}
       </div>
 
       <div className="navbar-right">

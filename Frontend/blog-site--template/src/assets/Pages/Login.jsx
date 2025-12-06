@@ -4,6 +4,10 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { userContext } from "../../App";
 
+// Set axios defaults ONCE
+axios.defaults.withCredentials = true;
+axios.defaults.baseURL = "https://blog-site-template-1.onrender.com";
+
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,11 +20,7 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const res = await axios.post(
-        "https://blog-site-template-1.onrender.com/login",
-        { email, password },
-        { withCredentials: true }
-      );
+      const res = await axios.post("/login", { email, password });
 
       if (res.data.success) {
         setUser({ username: res.data.username, email });
@@ -61,7 +61,7 @@ const Login = () => {
         </form>
 
         <p className="login-footer">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link to="/register" className="login-link">Register</Link>
         </p>
       </div>
@@ -70,13 +70,6 @@ const Login = () => {
 };
 
 export default Login;
-
-
-
-
-
-
-
 
 
 

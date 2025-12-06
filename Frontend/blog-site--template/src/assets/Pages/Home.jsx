@@ -14,7 +14,10 @@ const Home = () => {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await axios.get('https://blog-site-template-1.onrender.com/getposts',{  withCredentials: true});
+        const res = await axios.get(
+          'https://blog-site-template-1.onrender.com/getposts',
+          { withCredentials: true }
+        );
         setPosts(res.data);
       } catch (err) {
         console.error("Error fetching posts:", err);
@@ -31,7 +34,7 @@ const Home = () => {
 
       <div className="posts-feed">
         {posts.map(post => (
-          <Link to={`https://blog-site-template-1.onrender.com/post/${post._id}`} className="post-item" key={post._id}>
+          <Link to={`/post/${post._id}`} className="post-item" key={post._id}>
             {post.imageUrl && (
               <img
                 src={post.imageUrl}
@@ -56,8 +59,4 @@ const Home = () => {
 };
 
 export default Home;
-
-
-
-
 

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -24,19 +23,23 @@ const Register = () => {
     setLoading(true);
 
     try {
-       const res = await axios.post("https://blog-site-template-1.onrender.com/register", formData, {
-        withCredentials: true
-      });
+      const res = await axios.post(
+        "https://blog-site-template-1.onrender.com/register",
+        formData,
+        { withCredentials: true }
+      );
 
-      if (res.data.status === 'success') {
-        alert('Registration successful!');
-        navigate('/login');
+      // 👇 FIXED THIS — backend sends { message: "registered" }
+      if (res.data.message === "registered") {
+        alert("Registration successful!");
+        navigate("/login");
       } else {
-        alert('Registration failed. Please try again.');
+        alert("Registration failed. Please try again.");
       }
+
     } catch (err) {
       console.error(err);
-      alert('Error during registration.');
+      alert("Error during registration.");
     } finally {
       setLoading(false);
     }
@@ -46,6 +49,7 @@ const Register = () => {
     <div className="register-wrapper">
       <div className="register-card">
         <h2>Create Account</h2>
+
         <form onSubmit={handleSubmit}>
           <input
             type="text"
@@ -55,6 +59,7 @@ const Register = () => {
             onChange={handleChange}
             required
           />
+
           <input
             type="email"
             name="email"
@@ -63,6 +68,7 @@ const Register = () => {
             onChange={handleChange}
             required
           />
+
           <input
             type="password"
             name="password"
@@ -71,12 +77,15 @@ const Register = () => {
             onChange={handleChange}
             required
           />
+
           <button type="submit" disabled={loading}>
-            {loading ? 'Registering...' : 'Register'}
+            {loading ? "Registering..." : "Register"}
           </button>
         </form>
+
         <p className="login-link">
-          Already have an account? <span onClick={() => navigate('/login')}>Login</span>
+          Already have an account?{" "}
+          <span onClick={() => navigate("/login")}>Login</span>
         </p>
       </div>
     </div>
@@ -84,11 +93,6 @@ const Register = () => {
 };
 
 export default Register;
-
-
-
-
-
 
 
 

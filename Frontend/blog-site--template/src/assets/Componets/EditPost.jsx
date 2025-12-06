@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useContext } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
@@ -24,7 +23,7 @@ const EditPost = () => {
 
   /* -------------------- FETCH POST -------------------- */
   useEffect(() => {
-    if (!user) return;
+    if (!user || !user.email) return;
 
     axios
       .get(`https://blog-site-template-1.onrender.com/getpostbyid/${id}`, { withCredentials: true })
@@ -32,18 +31,21 @@ const EditPost = () => {
         const post = res.data;
 
         setFormData({
-          title: post.title,
-          subtitle: post.subtitle,
-          content: post.content,
+          title: post.title || "",
+          subtitle: post.subtitle || "",
+          content: post.content || "",
           file: null,
-          preview: post.imageUrl,
+          preview: post.imageUrl || "",
         });
 
-        setAuthor(post.author);
+        setAuthor(post.author || "");
         setOwner(user.email === post.authorEmail);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        console.error("Fetch post error:", err);
+        setLoading(false);
+      });
   }, [id, user]);
 
   /* -------------------- INPUT HANDLER -------------------- */
@@ -78,7 +80,8 @@ const EditPost = () => {
 
       alert("Post updated successfully!");
       navigate(`/post/${id}`);
-    } catch {
+    } catch (err) {
+      console.error("Update post error:", err);
       alert("Failed to update post.");
     }
   };
@@ -94,7 +97,8 @@ const EditPost = () => {
 
       alert("Post deleted.");
       navigate("/");
-    } catch {
+    } catch (err) {
+      console.error("Delete post error:", err);
       alert("Failed to delete post.");
     }
   };
@@ -106,11 +110,9 @@ const EditPost = () => {
   /* -------------------- UI -------------------- */
   return (
     <div className="edit-wrapper">
-
       <h2 className="edit-title">Edit Your Post</h2>
 
       <form onSubmit={handleSubmit} className="edit-form">
-
         <label>Title</label>
         <input type="text" name="title" value={formData.title} onChange={handleChange} required />
 
@@ -134,7 +136,6 @@ const EditPost = () => {
           <button type="submit" className="save-btn">Save Changes</button>
           <button type="button" className="delete-btn" onClick={handleDelete}>Delete Post</button>
         </div>
-
       </form>
     </div>
   );

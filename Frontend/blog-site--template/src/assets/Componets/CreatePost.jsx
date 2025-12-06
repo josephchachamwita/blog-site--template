@@ -1,4 +1,3 @@
-
 import './CreatePost.css';
 import axios from 'axios';
 import React, { useContext, useState, useEffect } from 'react';
@@ -34,7 +33,7 @@ const CreatePost = () => {
     formData.append("file", file);
 
     try {
-        const res = await axios.post("https://blog-site-template-1.onrender.com/create", formData, {
+      const res = await axios.post("https://blog-site-template-1.onrender.com/create", formData, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -61,7 +60,6 @@ const CreatePost = () => {
       <h2 className="form-title">Create a New Post</h2>
 
       <form onSubmit={handleSubmit} className="createpost-form">
-        
         <label>Title</label>
         <input
           type="text"
@@ -116,12 +114,6 @@ const CreatePost = () => {
 };
 
 export default CreatePost;
-
-
-
-
-
-
 
 
 
