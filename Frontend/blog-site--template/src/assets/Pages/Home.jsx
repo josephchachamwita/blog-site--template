@@ -14,7 +14,7 @@ const Home = () => {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await axios.get('http://localhost:3000/getposts');
+        const res = await axios.get('https://blog-site-template-1.onrender.com/getposts');
         setPosts(res.data);
       } catch (err) {
         console.error("Error fetching posts:", err);

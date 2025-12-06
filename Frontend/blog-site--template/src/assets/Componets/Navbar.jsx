@@ -12,7 +12,7 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.get("http://localhost:3000/logout", { withCredentials: true });
+      await axios.get("https://blog-site-template-1.onrender.com/logout", { withCredentials: true });
       setUser({});
       navigate("/");
     } catch (err) {

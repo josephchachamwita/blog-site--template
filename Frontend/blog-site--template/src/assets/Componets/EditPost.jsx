@@ -27,7 +27,7 @@ const EditPost = () => {
     if (!user) return;
 
     axios
-      .get(`http://localhost:3000/getpostbyid/${id}`, { withCredentials: true })
+      .get(`https://blog-site-template-1.onrender.com/getpostbyid/${id}`, { withCredentials: true })
       .then((res) => {
         const post = res.data;
 
@@ -72,7 +72,7 @@ const EditPost = () => {
     if (formData.file) data.append("file", formData.file);
 
     try {
-      await axios.put(`http://localhost:3000/editpost/${id}`, data, {
+      await axios.put(`https://blog-site-template-1.onrender.com/editpost/${id}`, data, {
         withCredentials: true,
       });
 
@@ -88,7 +88,7 @@ const EditPost = () => {
     if (!window.confirm("Delete this post permanently?")) return;
 
     try {
-      await axios.delete(`http://localhost:3000/deletepost/${id}`, {
+      await axios.delete(`https://blog-site-template-1.onrender.com/deletepost/${id}`, {
         withCredentials: true,
       });
 

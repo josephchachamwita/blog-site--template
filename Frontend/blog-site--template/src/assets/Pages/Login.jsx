@@ -17,7 +17,7 @@ const Login = () => {
 
     try {
       const res = await axios.post(
-        "http://localhost:3000/login",
+        "https://blog-site-template-1.onrender.com/login",
         { email, password },
         { withCredentials: true }
       );

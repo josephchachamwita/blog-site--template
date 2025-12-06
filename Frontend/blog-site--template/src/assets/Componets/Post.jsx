@@ -15,7 +15,7 @@ const Post = () => {
   // Fetch single post
   useEffect(() => {
     axios
-      .get(`http://localhost:3000/getpostbyid/${id}`)
+      .get(`https://blog-site-template-1.onrender.com/getpostbyid/${id}`)
       .then((res) => setPost(res.data))
       .catch((err) => console.log(err));
   }, [id]);
@@ -23,7 +23,7 @@ const Post = () => {
   // Delete post
   const handleDelete = async () => {
     try {
-      await axios.delete(`http://localhost:3000/deletepost/${post._id}`, {
+      await axios.delete(`https://blog-site-template-1.onrender.com/deletepost/${post._id}`, {
         withCredentials: true,
       });
       navigate("/");
