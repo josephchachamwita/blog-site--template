@@ -1,0 +1,173 @@
+/* ==========================================================
+   FIXED, LIGHT, GLASS NAVBAR
+========================================================== */
+.navbar {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 70px;
+
+  padding: 0 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  /* Light transparent glass effect */
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+
+  z-index: 1000;
+}
+
+/* ==========================================================
+   SPACING BELOW NAVBAR (so content isn't hidden)
+========================================================== */
+body {
+  padding-top: 80px; /* creates margin below fixed navbar */
+}
+
+/* ==========================================================
+   LOGO + ICON
+========================================================== */
+.logo {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #222;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  font-size: 2.4rem;
+  color: #4f7cff;
+  filter: drop-shadow(0 0 6px rgba(79, 124, 255, 0.5));
+  transition: 0.3s ease;
+}
+
+.logo:hover .icon {
+  transform: scale(1.12);
+  filter: drop-shadow(0 0 10px rgba(79, 124, 255, 0.9));
+}
+
+/* ==========================================================
+   NAV LINKS
+========================================================== */
+.navbar-center .nav-link {
+  margin: 0 14px;
+  font-size: 1rem;        /* same size as Login/Register */
+  font-weight: 500;
+  color: #333;
+  text-decoration: none;
+  transition: 0.25s ease;
+}
+
+/* Home link — more appealing but same size */
+.navbar-center .nav-link:first-child {
+  color: #4f7cff;
+  font-weight: 600;
+}
+
+.navbar-center .nav-link:hover {
+  color: #4f7cff;
+  text-shadow: 0 0 6px rgba(79, 124, 255, 0.35);
+}
+
+/* ==========================================================
+   AUTH BUTTONS (REGISTER, LOGIN, LOGOUT)
+========================================================== */
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-auth {
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: 0.25s ease;
+}
+
+/* Register */
+.register-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #333;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.register-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Login */
+.login-btn {
+  background: #4f7cff;
+  color: #fff;
+  border: none;
+}
+
+.login-btn:hover {
+  background: #3e66e6;
+  box-shadow: 0 0 8px rgba(79, 124, 255, 0.45);
+}
+
+/* Logout */
+.btn-logout {
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 1rem;
+  background: #ff3d3d;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+.btn-logout:hover {
+  background: #e22e2e;
+}
+
+/* ==========================================================
+   RESPONSIVE DESIGN
+========================================================== */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 20px;
+    height: 65px;
+  }
+
+  .navbar-center {
+    display: none; /* hide center links on mobile */
+  }
+
+  .icon {
+    font-size: 2.1rem;
+  }
+
+  .btn-auth,
+  .btn-logout {
+    padding: 6px 14px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    height: 60px;
+  }
+
+  .logo {
+    font-size: 1.3rem;
+  }
+
+  .icon {
+    font-size: 1.9rem;
+  }
+}

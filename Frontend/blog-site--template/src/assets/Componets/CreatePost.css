@@ -1,0 +1,141 @@
+
+/* ---------- MAIN WRAPPER ---------- */
+.createpost-wrapper {
+  max-width: 480px;
+  width: 90%;
+  margin: 40px auto;
+  padding: 25px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.1);
+  transition: 0.3s ease;
+}
+
+/* Smooth appear effect */
+.createpost-wrapper:hover {
+  transform: translateY(-2px);
+}
+
+/* ---------- TITLE ---------- */
+.form-title {
+  text-align: center;
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+/* ---------- FORM ---------- */
+.createpost-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Labels */
+.createpost-form label {
+  font-weight: 600;
+  color: #444;
+}
+
+/* Inputs + textarea */
+.createpost-form input,
+.createpost-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  font-size: 15px;
+  outline: none;
+  transition: 0.2s;
+}
+
+/* Focus effect */
+.createpost-form input:focus,
+.createpost-form textarea:focus {
+  border-color: #6c63ff;
+  box-shadow: 0 0 4px rgba(108, 99, 255, 0.3);
+}
+
+/* Submit button */
+.submit-btn {
+  padding: 14px;
+  background-color: #6c63ff;
+  color: white;
+  font-size: 17px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.submit-btn:hover {
+  background-color: #5a53e6;
+}
+
+.submit-btn:disabled {
+  background-color: #b4b1ff;
+  cursor: not-allowed;
+}
+
+/* ---------- POST INFO AFTER CREATE ---------- */
+.post-info {
+  margin-top: 20px;
+  background: #f5f5ff;
+  padding: 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------- RESPONSIVENESS ---------- */
+
+/* Mobile screens */
+@media (max-width: 600px) {
+  .createpost-wrapper {
+    padding: 20px;
+    margin: 20px auto;
+  }
+
+  .form-title {
+    font-size: 22px;
+  }
+
+  .createpost-form input,
+  .createpost-form textarea {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  .submit-btn {
+    font-size: 16px;
+  }
+}
+
+/* Very small phones (under 380px) */
+@media (max-width: 380px) {
+  .createpost-wrapper {
+    padding: 15px;
+  }
+
+  .form-title {
+    font-size: 20px;
+  }
+
+  .createpost-form {
+    gap: 12px;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+

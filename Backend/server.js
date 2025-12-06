@@ -1,0 +1,281 @@
+// --------------------------------------------
+//  IMPORTS
+// --------------------------------------------
+const express = require("express");
+const mongoose = require("mongoose");
+const dotenv = require("dotenv").config();
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
+const multer = require("multer");
+const path = require("path");
+const cloudinary = require("cloudinary").v2;
+
+const UserModel = require("./models/UserModel");
+const PostModel = require("./models/PostModel");
+
+// --------------------------------------------
+//  APP CONFIG
+// --------------------------------------------
+const app = express();
+app.use(express.json());
+app.use(cookieParser());
+
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
+
+app.use(express.static("public"));
+
+// --------------------------------------------
+//  CLOUDINARY CONFIG
+// --------------------------------------------
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// --------------------------------------------
+//  MULTER CONFIG
+// --------------------------------------------
+const storage = multer.diskStorage({
+  destination: (_, __, cb) => cb(null, "public/images"),
+  filename: (_, file, cb) =>
+    cb(null, Date.now() + path.extname(file.originalname)),
+});
+const upload = multer({ storage });
+
+// --------------------------------------------
+//  JWT AUTH MIDDLEWARE
+// --------------------------------------------
+const verifyUser = (req, res, next) => {
+  const token = req.cookies.token;
+  if (!token) return res.status(401).json({ message: "Token missing" });
+
+  jwt.verify(token, "jwt-secret-key", (err, decoded) => {
+    if (err) return res.status(401).json({ message: "Invalid token" });
+    req.email = decoded.email;
+    req.username = decoded.username;
+    next();
+  });
+};
+
+// --------------------------------------------
+//  MONGO CONNECTION
+// --------------------------------------------
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.log("Mongo error:", err));
+
+/* =====================================================
+   AUTH ROUTES
+===================================================== */
+
+// REGISTER
+app.post("/register", async (req, res) => {
+  const { username, email, password } = req.body;
+  try {
+    const hashed = await bcrypt.hash(password, 10);
+    await UserModel.create({ username, email, password: hashed });
+    res.json({ message: "registered" });
+  } catch (err) {
+    res.status(500).json({ message: "Registration failed" });
+  }
+});
+
+// LOGIN
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await UserModel.findOne({ email });
+    if (!user)
+      return res.json({ success: false, message: "User does not exist" });
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match)
+      return res.json({ success: false, message: "Password incorrect" });
+
+    const token = jwt.sign(
+      { email: user.email, username: user.username },
+      "jwt-secret-key",
+      { expiresIn: "1d" }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+
+    res.json({ success: true, username: user.username, email: user.email });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Login failed" });
+  }
+});
+
+// GET CURRENT USER
+app.get("/current_user", verifyUser, (req, res) => {
+  res.json({ username: req.username, email: req.email });
+});
+
+// LOGOUT
+app.get("/logout", (req, res) => {
+  res.clearCookie("token");
+  res.json({ message: "success" });
+});
+
+/* =====================================================
+   POSTS ROUTES
+===================================================== */
+
+// CREATE POST
+app.post("/create", verifyUser, upload.single("file"), async (req, res) => {
+  try {
+    const user = await UserModel.findOne({ email: req.email });
+    if (!req.file) return res.status(400).json("Image is required");
+
+    const uploaded = await cloudinary.uploader.upload(req.file.path, {
+      folder: "blog_posts",
+    });
+
+    const post = await PostModel.create({
+      title: req.body.title,
+      subtitle: req.body.subtitle,
+      content: req.body.content,
+      imageUrl: uploaded.secure_url,
+      author: user._id,
+    });
+
+    // Return author's username as string
+    res.json({
+      status: "success",
+      post: {
+        ...post._doc,
+        author: user.username, // now author is actual username
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json("Create post error");
+  }
+});
+
+// GET ALL POSTS
+app.get("/getposts", async (req, res) => {
+  try {
+    const posts = await PostModel.find().sort({ createdAt: -1 });
+
+    const formatted = await Promise.all(
+      posts.map(async (post) => {
+        const author = await UserModel.findById(post.author).select("username");
+        return {
+          ...post._doc,
+          author: author?.username || "Unknown",
+        };
+      })
+    );
+
+    res.json(formatted);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json("Failed to fetch posts");
+  }
+});
+
+// GET SINGLE POST
+app.get("/getpostbyid/:id", async (req, res) => {
+  try {
+    const post = await PostModel.findById(req.params.id).lean();
+    if (!post) return res.status(404).json("Post not found");
+
+    const author = await UserModel.findById(post.author).select("username email");
+
+    res.json({
+      ...post,
+      author: author?.username || null,
+      authorEmail: author?.email || null,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json("Failed to fetch post");
+  }
+});
+
+// EDIT POST
+app.put("/editpost/:id", verifyUser, upload.single("file"), async (req, res) => {
+  try {
+    const post = await PostModel.findById(req.params.id);
+    const user = await UserModel.findOne({ email: req.email });
+
+    if (!post) return res.status(404).json("Post not found");
+    if (String(post.author) !== String(user._id))
+      return res.status(403).json("Not allowed");
+
+    const updateData = {
+      title: req.body.title,
+      subtitle: req.body.subtitle,
+      content: req.body.content,
+    };
+
+    if (req.file) {
+      const uploaded = await cloudinary.uploader.upload(req.file.path, {
+        folder: "blog_posts",
+      });
+      updateData.imageUrl = uploaded.secure_url;
+    }
+
+    const updated = await PostModel.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+    });
+
+    res.json({
+      ...updated._doc,
+      author: user.username, // return actual username
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json("Edit failed");
+  }
+});
+
+// DELETE POST
+app.delete("/deletepost/:id", verifyUser, async (req, res) => {
+  try {
+    const post = await PostModel.findById(req.params.id);
+    const user = await UserModel.findOne({ email: req.email });
+
+    if (!post) return res.status(404).json("Post not found");
+    if (String(post.author) !== String(user._id))
+      return res.status(403).json("Not allowed");
+
+    await PostModel.findByIdAndDelete(req.params.id);
+    res.json({ message: "deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json("Delete failed");
+  }
+});
+
+/* =====================================================
+   START SERVER
+===================================================== */
+app.listen(3000, () => console.log("Server running on port 3000"));
+
+
+
+
+
+
+
+
+
+
+
+
