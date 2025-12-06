@@ -26,10 +26,9 @@ app.use(cookieParser());
 //  CORS CONFIG
 // --------------------------------------------
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://blog-site-template-pi.vercel.app",
-  " https://blog-site-template-1.onrender.com"
-
+  "http://localhost:5173", // Local development URL
+  "https://blog-site-template-pi.vercel.app", // Vercel production frontend
+  "https://blog-site-template-1.onrender.com", // Removed extra space
 ];
 
 app.use(
