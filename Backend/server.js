@@ -3,23 +3,17 @@
 // --------------------------------------------
 const express = require("express");
 const mongoose = require("mongoose");
-require("dotenv").config();
+const dotenv = require("dotenv").config();
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
+const path = require("path");
 const cloudinary = require("cloudinary").v2;
 
 const UserModel = require("./models/UserModel");
 const PostModel = require("./models/PostModel");
-
-// --------------------------------------------
-//  ENV VALIDATION
-// --------------------------------------------
-if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
-  throw new Error("JWT secrets not set");
-}
 
 // --------------------------------------------
 //  APP CONFIG
@@ -32,20 +26,26 @@ app.use(cookieParser());
 //  CORS CONFIG
 // --------------------------------------------
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://blog-site-template-pi.vercel.app",
-  "https://blog-site-template-1.onrender.com",
+  "http://localhost:5173", // Local development URL
+  "https://blog-site-template-pi.vercel.app", // Vercel production frontend
+  "https://blog-site-template-1.onrender.com", // Removed extra space
 ];
 
 app.use(
   cors({
-    origin(origin, cb) {
-      if (!origin || allowedOrigins.includes(origin)) cb(null, true);
-      else cb(new Error("Not allowed by CORS"));
+    origin: function (origin, callback) {
+      // allow requests with no origin (Postman or curl)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
     },
     credentials: true,
   })
 );
+
+app.use(express.static("public"));
 
 // --------------------------------------------
 //  CLOUDINARY CONFIG
@@ -57,36 +57,24 @@ cloudinary.config({
 });
 
 // --------------------------------------------
-//  MULTER (MEMORY)
+//  MULTER CONFIG
 // --------------------------------------------
-const upload = multer({ storage: multer.memoryStorage() });
+const storage = multer.diskStorage({
+  destination: (_, __, cb) => cb(null, "public/images"),
+  filename: (_, file, cb) =>
+    cb(null, Date.now() + path.extname(file.originalname)),
+});
+const upload = multer({ storage });
 
 // --------------------------------------------
-//  TOKEN HELPERS
-// --------------------------------------------
-const createAccessToken = (user) =>
-  jwt.sign(
-    { email: user.email, username: user.username },
-    process.env.JWT_SECRET,
-    { expiresIn: "15m" }
-  );
-
-const createRefreshToken = (user) =>
-  jwt.sign(
-    { email: user.email },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: "7d" }
-  );
-
-// --------------------------------------------
-//  AUTH MIDDLEWARE
+//  JWT AUTH MIDDLEWARE
 // --------------------------------------------
 const verifyUser = (req, res, next) => {
   const token = req.cookies.token;
-  if (!token) return res.status(401).json({ message: "No access token" });
+  if (!token) return res.status(401).json({ message: "Token missing" });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(401).json({ message: "Invalid access token" });
+  jwt.verify(token, process.env.JWT_SECRET || "jwt-secret-key", (err, decoded) => {
+    if (err) return res.status(401).json({ message: "Invalid token" });
     req.email = decoded.email;
     req.username = decoded.username;
     next();
@@ -98,11 +86,8 @@ const verifyUser = (req, res, next) => {
 // --------------------------------------------
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => {
-    console.error("Mongo error:", err);
-    process.exit(1);
-  });
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.log("Mongo error:", err));
 
 /* =====================================================
    AUTH ROUTES
@@ -110,101 +95,49 @@ mongoose
 
 // REGISTER
 app.post("/register", async (req, res) => {
+  const { username, email, password } = req.body;
   try {
-    const { username, email, password } = req.body;
-    if (!username || !email || !password || password.length < 6) {
-      return res.status(400).json({ message: "Invalid input" });
-    }
-
-    if (await UserModel.findOne({ email })) {
-      return res.status(409).json({ message: "Email exists" });
-    }
-
     const hashed = await bcrypt.hash(password, 10);
     await UserModel.create({ username, email, password: hashed });
-
     res.json({ message: "registered" });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Registration failed" });
   }
 });
 
 // LOGIN
 app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
   try {
-    const { email, password } = req.body;
     const user = await UserModel.findOne({ email });
-    if (!user) return res.status(401).json({ message: "User not found" });
+    if (!user)
+      return res.json({ success: false, message: "User does not exist" });
 
-    if (!(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: "Wrong password" });
-    }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match)
+      return res.json({ success: false, message: "Password incorrect" });
 
-    const accessToken = createAccessToken(user);
-    const refreshToken = createRefreshToken(user);
+    const token = jwt.sign(
+      { email: user.email, username: user.username },
+      process.env.JWT_SECRET || "jwt-secret-key",
+      { expiresIn: "1d" }
+    );
 
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    res
-      .cookie("token", accessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 15 * 60 * 1000,
-      })
-      .cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      })
-      .json({
-        success: true,
-        username: user.username,
-        email: user.email,
-      });
-  } catch (err) {
-    res.status(500).json({ message: "Login failed" });
-  }
-});
-
-// REFRESH
-app.post("/refresh", async (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) return res.status(401).json({ message: "No refresh token" });
-
-  try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await UserModel.findOne({
-      email: decoded.email,
-      refreshToken,
+    // -----------------------------
+    // COOKIE FIXES FOR CROSS-DOMAIN
+    // -----------------------------
+    res.cookie("token", token, {
+      httpOnly: true,
+      sameSite: "none", // allow cross-site cookies
+      secure: true,     // required for HTTPS
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
-    if (!user) return res.status(403).json({ message: "Invalid refresh token" });
-
-    const newAccess = createAccessToken(user);
-    const newRefresh = createRefreshToken(user);
-
-    user.refreshToken = newRefresh;
-    await user.save();
-
-    res
-      .cookie("token", newAccess, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 15 * 60 * 1000,
-      })
-      .cookie("refreshToken", newRefresh, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      })
-      .json({ message: "refreshed" });
-  } catch {
-    res.status(403).json({ message: "Refresh failed" });
+    res.json({ success: true, username: user.username, email: user.email });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Login failed" });
   }
 });
 
@@ -214,22 +147,9 @@ app.get("/current_user", verifyUser, (req, res) => {
 });
 
 // LOGOUT
-app.get("/logout", async (req, res) => {
-  if (req.cookies.refreshToken) {
-    await UserModel.updateOne(
-      { refreshToken: req.cookies.refreshToken },
-      { $unset: { refreshToken: "" } }
-    );
-  }
-
-  res
-    .clearCookie("token", { httpOnly: true, secure: true, sameSite: "none" })
-    .clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-    })
-    .json({ message: "success" });
+app.get("/logout", (req, res) => {
+  res.clearCookie("token", { sameSite: "none", secure: true });
+  res.json({ message: "success" });
 });
 
 /* =====================================================
@@ -239,68 +159,76 @@ app.get("/logout", async (req, res) => {
 // CREATE POST
 app.post("/create", verifyUser, upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "Image required" });
-
     const user = await UserModel.findOne({ email: req.email });
+    if (!req.file) return res.status(400).json("Image is required");
 
-    const uploadResult = await new Promise((resolve, reject) => {
-      cloudinary.uploader
-        .upload_stream({ folder: "blog_posts" }, (err, result) =>
-          err ? reject(err) : resolve(result)
-        )
-        .end(req.file.buffer);
+    const uploaded = await cloudinary.uploader.upload(req.file.path, {
+      folder: "blog_posts",
     });
 
     const post = await PostModel.create({
       title: req.body.title,
       subtitle: req.body.subtitle,
       content: req.body.content,
-      imageUrl: uploadResult.secure_url,
+      imageUrl: uploaded.secure_url,
       author: user._id,
     });
 
     res.json({
-      ...post.toObject(),
-      author: user.username,
+      status: "success",
+      post: {
+        ...post._doc,
+        author: user.username,
+      },
     });
-  } catch {
-    res.status(500).json({ message: "Create post failed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json("Create post error");
   }
 });
 
-// GET POSTS
+// GET ALL POSTS
 app.get("/getposts", async (req, res) => {
   try {
-    const posts = await PostModel.find()
-      .sort({ createdAt: -1 })
-      .populate("author", "username")
-      .lean();
+    const posts = await PostModel.find().sort({ createdAt: -1 });
 
-    res.json(posts.map(p => ({
-      ...p,
-      author: p.author?.username || "Unknown",
-    })));
-  } catch {
-    res.status(500).json({ message: "Fetch failed" });
+    const formatted = await Promise.all(
+      posts.map(async (post) => {
+        let authorName = "Unknown";
+        if (post.author) {
+          const author = await UserModel.findById(post.author).select("username");
+          authorName = author?.username || "Unknown";
+        }
+        return {
+          ...post._doc,
+          author: authorName,
+        };
+      })
+    );
+
+    res.json(formatted);
+  } catch (err) {
+    console.error("GetPosts error:", err);
+    res.status(500).json("Failed to fetch posts");
   }
 });
 
-// GET POST BY ID
+// GET SINGLE POST
 app.get("/getpostbyid/:id", async (req, res) => {
   try {
-    const post = await PostModel.findById(req.params.id)
-      .populate("author", "username email")
-      .lean();
+    const post = await PostModel.findById(req.params.id).lean();
+    if (!post) return res.status(404).json("Post not found");
 
-    if (!post) return res.status(404).json({ message: "Not found" });
+    const author = await UserModel.findById(post.author).select("username email");
 
     res.json({
       ...post,
-      author: post.author?.username,
-      authorEmail: post.author?.email,
+      author: author?.username || null,
+      authorEmail: author?.email || null,
     });
-  } catch {
-    res.status(500).json({ message: "Fetch failed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json("Failed to fetch post");
   }
 });
 
@@ -310,36 +238,34 @@ app.put("/editpost/:id", verifyUser, upload.single("file"), async (req, res) => 
     const post = await PostModel.findById(req.params.id);
     const user = await UserModel.findOne({ email: req.email });
 
-    if (!post) return res.status(404).json({ message: "Not found" });
+    if (!post) return res.status(404).json("Post not found");
     if (String(post.author) !== String(user._id))
-      return res.status(403).json({ message: "Forbidden" });
+      return res.status(403).json("Not allowed");
 
-    const update = {
+    const updateData = {
       title: req.body.title,
       subtitle: req.body.subtitle,
       content: req.body.content,
     };
 
     if (req.file) {
-      const uploadResult = await new Promise((resolve, reject) => {
-        cloudinary.uploader
-          .upload_stream({ folder: "blog_posts" }, (err, result) =>
-            err ? reject(err) : resolve(result)
-          )
-          .end(req.file.buffer);
+      const uploaded = await cloudinary.uploader.upload(req.file.path, {
+        folder: "blog_posts",
       });
-      update.imageUrl = uploadResult.secure_url;
+      updateData.imageUrl = uploaded.secure_url;
     }
 
-    const updated = await PostModel.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true }
-    );
+    const updated = await PostModel.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+    });
 
-    res.json({ ...updated.toObject(), author: user.username });
-  } catch {
-    res.status(500).json({ message: "Edit failed" });
+    res.json({
+      ...updated._doc,
+      author: user.username,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json("Edit failed");
   }
 });
 
@@ -349,14 +275,15 @@ app.delete("/deletepost/:id", verifyUser, async (req, res) => {
     const post = await PostModel.findById(req.params.id);
     const user = await UserModel.findOne({ email: req.email });
 
-    if (!post) return res.status(404).json({ message: "Not found" });
+    if (!post) return res.status(404).json("Post not found");
     if (String(post.author) !== String(user._id))
-      return res.status(403).json({ message: "Forbidden" });
+      return res.status(403).json("Not allowed");
 
-    await post.deleteOne();
+    await PostModel.findByIdAndDelete(req.params.id);
     res.json({ message: "deleted" });
-  } catch {
-    res.status(500).json({ message: "Delete failed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json("Delete failed");
   }
 });
 
@@ -364,4 +291,4 @@ app.delete("/deletepost/:id", verifyUser, async (req, res) => {
    START SERVER
 ===================================================== */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
