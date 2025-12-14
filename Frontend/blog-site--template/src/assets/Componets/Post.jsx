@@ -82,7 +82,7 @@ const Post = () => {
       try {
         setLoading(true);
         const res = await axios.get(
-          `https://blog-site-template-1.onrender.com/getpostbyid/${id}`,
+          `https://blog-site-template.onrender.com/getpostbyid/${id}`,
           {
             withCredentials: true, // Important for cookie auth
           }
@@ -105,7 +105,7 @@ const Post = () => {
 
     try {
       await axios.delete(
-        `https://blog-site-template-1.onrender.com/deletepost/${post._id}`,
+        `https://blog-site-template.onrender.com/deletepost/${post._id}`,
         { withCredentials: true }
       );
       navigate("/");

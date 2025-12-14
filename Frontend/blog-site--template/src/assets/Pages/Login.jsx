@@ -6,7 +6,7 @@ import { userContext } from "../../App";
 
 // Set axios defaults ONCE
 axios.defaults.withCredentials = true;
-axios.defaults.baseURL = "https://blog-site-template-1.onrender.com";
+axios.defaults.baseURL = "https://blog-site-template.onrender.com";
 
 const Login = () => {
   const [email, setEmail] = useState("");

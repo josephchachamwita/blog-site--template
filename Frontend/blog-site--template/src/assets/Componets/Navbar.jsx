@@ -14,7 +14,7 @@ const Navbar = () => {
     const checkUser = async () => {
       try {
         const res = await axios.get(
-          "https://blog-site-template-1.onrender.com/current_user",
+          "https://blog-site-template.onrender.com/current_user",
           { withCredentials: true }
         );
 
@@ -36,7 +36,7 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       await axios.get(
-        "https://blog-site-template-1.onrender.com/logout",
+        "https://blog-site-template.onrender.com/logout",
         { withCredentials: true }
       );
       setUser({});

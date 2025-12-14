@@ -26,7 +26,7 @@ const EditPost = () => {
     if (!user || !user.email) return;
 
     axios
-      .get(`https://blog-site-template-1.onrender.com/getpostbyid/${id}`, { withCredentials: true })
+      .get(`https://blog-site-template.onrender.com/getpostbyid/${id}`, { withCredentials: true })
       .then((res) => {
         const post = res.data;
 
@@ -74,7 +74,7 @@ const EditPost = () => {
     if (formData.file) data.append("file", formData.file);
 
     try {
-      await axios.put(`https://blog-site-template-1.onrender.com/editpost/${id}`, data, {
+      await axios.put(`https://blog-site-template.onrender.com/editpost/${id}`, data, {
         withCredentials: true,
       });
 
@@ -91,7 +91,7 @@ const EditPost = () => {
     if (!window.confirm("Delete this post permanently?")) return;
 
     try {
-      await axios.delete(`https://blog-site-template-1.onrender.com/deletepost/${id}`, {
+      await axios.delete(`https://blog-site-template.onrender.com/deletepost/${id}`, {
         withCredentials: true,
       });
 

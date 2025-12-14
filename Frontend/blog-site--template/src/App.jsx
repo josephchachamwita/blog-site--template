@@ -21,7 +21,7 @@ function App() {
   axios.defaults.withCredentials = true;
 
   // Backend URL
-  const BACKEND_URL = "https://blog-site-template-1.onrender.com";
+  const BACKEND_URL = "https://blog-site-template.onrender.com";
 
   // Check for active session
   useEffect(() => {
