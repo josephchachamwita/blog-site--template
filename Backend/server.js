@@ -9,18 +9,10 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
-const rateLimit = require("express-rate-limit");
 const cloudinary = require("cloudinary").v2;
 
 const UserModel = require("./models/UserModel");
 const PostModel = require("./models/PostModel");
-
-// --------------------------------------------
-//  ENV CHECK
-// --------------------------------------------
-if (!process.env.JWT_SECRET) {
-  throw new Error("JWT_SECRET is not defined");
-}
 
 // --------------------------------------------
 //  APP CONFIG
@@ -40,11 +32,11 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: (origin, callback) => {
+    origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(null, false);
+        callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
@@ -61,42 +53,10 @@ cloudinary.config({
 });
 
 // --------------------------------------------
-//  MULTER CONFIG (MEMORY ONLY)
+//  MULTER CONFIG (MEMORY STORAGE)
 // --------------------------------------------
 const upload = multer({
-  storage: multer.memoryStorage(), // ✅ NO local files
-  fileFilter: (_, file, cb) => {
-    if (!file.mimetype.startsWith("image/")) {
-      cb(new Error("Only image files allowed"), false);
-    } else {
-      cb(null, true);
-    }
-  },
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
-  },
-});
-
-// --------------------------------------------
-//  CLOUDINARY BUFFER UPLOAD HELPER
-// --------------------------------------------
-const uploadToCloudinary = (buffer) => {
-  return new Promise((resolve, reject) => {
-    cloudinary.uploader
-      .upload_stream({ folder: "blog_posts" }, (err, result) => {
-        if (err) reject(err);
-        else resolve(result);
-      })
-      .end(buffer);
-  });
-};
-
-// --------------------------------------------
-//  RATE LIMITER (AUTH)
-// --------------------------------------------
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  storage: multer.memoryStorage(),
 });
 
 // --------------------------------------------
@@ -106,12 +66,16 @@ const verifyUser = (req, res, next) => {
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ message: "Token missing" });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(401).json({ message: "Invalid token" });
-    req.email = decoded.email;
-    req.username = decoded.username;
-    next();
-  });
+  jwt.verify(
+    token,
+    process.env.JWT_SECRET || "jwt-secret-key",
+    (err, decoded) => {
+      if (err) return res.status(401).json({ message: "Invalid token" });
+      req.email = decoded.email;
+      req.username = decoded.username;
+      next();
+    }
+  );
 };
 
 // --------------------------------------------
@@ -127,16 +91,11 @@ mongoose
 ===================================================== */
 
 // REGISTER
-app.post("/register", authLimiter, async (req, res) => {
+app.post("/register", async (req, res) => {
   const { username, email, password } = req.body;
   try {
-    const exists = await UserModel.findOne({ email });
-    if (exists)
-      return res.status(400).json({ message: "Email already registered" });
-
     const hashed = await bcrypt.hash(password, 10);
     await UserModel.create({ username, email, password: hashed });
-
     res.json({ message: "registered" });
   } catch (err) {
     console.error(err);
@@ -145,20 +104,20 @@ app.post("/register", authLimiter, async (req, res) => {
 });
 
 // LOGIN
-app.post("/login", authLimiter, async (req, res) => {
+app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await UserModel.findOne({ email });
     if (!user)
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.json({ success: false, message: "User does not exist" });
 
     const match = await bcrypt.compare(password, user.password);
     if (!match)
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.json({ success: false, message: "Password incorrect" });
 
     const token = jwt.sign(
       { email: user.email, username: user.username },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "jwt-secret-key",
       { expiresIn: "1d" }
     );
 
@@ -172,7 +131,7 @@ app.post("/login", authLimiter, async (req, res) => {
     res.json({ success: true, username: user.username, email: user.email });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Login failed" });
+    res.status(500).json({ success: false, message: "Login failed" });
   }
 });
 
@@ -197,7 +156,16 @@ app.post("/create", verifyUser, upload.single("file"), async (req, res) => {
     const user = await UserModel.findOne({ email: req.email });
     if (!req.file) return res.status(400).json("Image is required");
 
-    const uploaded = await uploadToCloudinary(req.file.buffer);
+    const uploaded = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "blog_posts" },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
+    });
 
     const post = await PostModel.create({
       title: req.body.title,
@@ -223,14 +191,21 @@ app.post("/create", verifyUser, upload.single("file"), async (req, res) => {
 // GET ALL POSTS
 app.get("/getposts", async (req, res) => {
   try {
-    const posts = await PostModel.find()
-      .populate("author", "username")
-      .sort({ createdAt: -1 });
+    const posts = await PostModel.find().sort({ createdAt: -1 });
 
-    const formatted = posts.map((post) => ({
-      ...post._doc,
-      author: post.author?.username || "Unknown",
-    }));
+    const formatted = await Promise.all(
+      posts.map(async (post) => {
+        let authorName = "Unknown";
+        if (post.author) {
+          const author = await UserModel.findById(post.author).select("username");
+          authorName = author?.username || "Unknown";
+        }
+        return {
+          ...post._doc,
+          author: authorName,
+        };
+      })
+    );
 
     res.json(formatted);
   } catch (err) {
@@ -275,7 +250,17 @@ app.put("/editpost/:id", verifyUser, upload.single("file"), async (req, res) => 
     };
 
     if (req.file) {
-      const uploaded = await uploadToCloudinary(req.file.buffer);
+      const uploaded = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "blog_posts" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+
       updateData.imageUrl = uploaded.secure_url;
     }
 
