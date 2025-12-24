@@ -9,11 +9,18 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
-const path = require("path");
+const rateLimit = require("express-rate-limit");
 const cloudinary = require("cloudinary").v2;
 
 const UserModel = require("./models/UserModel");
 const PostModel = require("./models/PostModel");
+
+// --------------------------------------------
+//  ENV CHECK
+// --------------------------------------------
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET is not defined");
+}
 
 // --------------------------------------------
 //  APP CONFIG
@@ -26,26 +33,23 @@ app.use(cookieParser());
 //  CORS CONFIG
 // --------------------------------------------
 const allowedOrigins = [
-  "http://localhost:5173", // Local development URL
-  "https://blog-site-template-pi.vercel.app", // Vercel production frontend
-  "https://blog-site-template.onrender.com", // Removed extra space
+  "http://localhost:5173",
+  "https://blog-site-template-pi.vercel.app",
+  "https://blog-site-template.onrender.com",
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin (Postman or curl)
+    origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        callback(null, false);
       }
     },
     credentials: true,
   })
 );
-
-app.use(express.static("public"));
 
 // --------------------------------------------
 //  CLOUDINARY CONFIG
@@ -57,14 +61,43 @@ cloudinary.config({
 });
 
 // --------------------------------------------
-//  MULTER CONFIG
+//  MULTER CONFIG (MEMORY ONLY)
 // --------------------------------------------
-const storage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, "public/images"),
-  filename: (_, file, cb) =>
-    cb(null, Date.now() + path.extname(file.originalname)),
+const upload = multer({
+  storage: multer.memoryStorage(), // ✅ NO local files
+  fileFilter: (_, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      cb(new Error("Only image files allowed"), false);
+    } else {
+      cb(null, true);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
 });
-const upload = multer({ storage });
+
+// --------------------------------------------
+//  CLOUDINARY BUFFER UPLOAD HELPER
+// --------------------------------------------
+const uploadToCloudinary = (buffer) => {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream({ folder: "blog_posts" }, (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      })
+      .end(buffer);
+  });
+};
+
+// --------------------------------------------
+//  RATE LIMITER (AUTH)
+// --------------------------------------------
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
 
 // --------------------------------------------
 //  JWT AUTH MIDDLEWARE
@@ -73,7 +106,7 @@ const verifyUser = (req, res, next) => {
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ message: "Token missing" });
 
-  jwt.verify(token, process.env.JWT_SECRET || "jwt-secret-key", (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) return res.status(401).json({ message: "Invalid token" });
     req.email = decoded.email;
     req.username = decoded.username;
@@ -94,11 +127,16 @@ mongoose
 ===================================================== */
 
 // REGISTER
-app.post("/register", async (req, res) => {
+app.post("/register", authLimiter, async (req, res) => {
   const { username, email, password } = req.body;
   try {
+    const exists = await UserModel.findOne({ email });
+    if (exists)
+      return res.status(400).json({ message: "Email already registered" });
+
     const hashed = await bcrypt.hash(password, 10);
     await UserModel.create({ username, email, password: hashed });
+
     res.json({ message: "registered" });
   } catch (err) {
     console.error(err);
@@ -107,37 +145,34 @@ app.post("/register", async (req, res) => {
 });
 
 // LOGIN
-app.post("/login", async (req, res) => {
+app.post("/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await UserModel.findOne({ email });
     if (!user)
-      return res.json({ success: false, message: "User does not exist" });
+      return res.status(401).json({ message: "Invalid credentials" });
 
     const match = await bcrypt.compare(password, user.password);
     if (!match)
-      return res.json({ success: false, message: "Password incorrect" });
+      return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
       { email: user.email, username: user.username },
-      process.env.JWT_SECRET || "jwt-secret-key",
+      process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    // -----------------------------
-    // COOKIE FIXES FOR CROSS-DOMAIN
-    // -----------------------------
     res.cookie("token", token, {
       httpOnly: true,
-      sameSite: "none", // allow cross-site cookies
-      secure: true,     // required for HTTPS
+      sameSite: "none",
+      secure: true,
       maxAge: 24 * 60 * 60 * 1000,
     });
 
     res.json({ success: true, username: user.username, email: user.email });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Login failed" });
+    res.status(500).json({ message: "Login failed" });
   }
 });
 
@@ -162,9 +197,7 @@ app.post("/create", verifyUser, upload.single("file"), async (req, res) => {
     const user = await UserModel.findOne({ email: req.email });
     if (!req.file) return res.status(400).json("Image is required");
 
-    const uploaded = await cloudinary.uploader.upload(req.file.path, {
-      folder: "blog_posts",
-    });
+    const uploaded = await uploadToCloudinary(req.file.buffer);
 
     const post = await PostModel.create({
       title: req.body.title,
@@ -190,21 +223,14 @@ app.post("/create", verifyUser, upload.single("file"), async (req, res) => {
 // GET ALL POSTS
 app.get("/getposts", async (req, res) => {
   try {
-    const posts = await PostModel.find().sort({ createdAt: -1 });
+    const posts = await PostModel.find()
+      .populate("author", "username")
+      .sort({ createdAt: -1 });
 
-    const formatted = await Promise.all(
-      posts.map(async (post) => {
-        let authorName = "Unknown";
-        if (post.author) {
-          const author = await UserModel.findById(post.author).select("username");
-          authorName = author?.username || "Unknown";
-        }
-        return {
-          ...post._doc,
-          author: authorName,
-        };
-      })
-    );
+    const formatted = posts.map((post) => ({
+      ...post._doc,
+      author: post.author?.username || "Unknown",
+    }));
 
     res.json(formatted);
   } catch (err) {
@@ -249,15 +275,15 @@ app.put("/editpost/:id", verifyUser, upload.single("file"), async (req, res) => 
     };
 
     if (req.file) {
-      const uploaded = await cloudinary.uploader.upload(req.file.path, {
-        folder: "blog_posts",
-      });
+      const uploaded = await uploadToCloudinary(req.file.buffer);
       updateData.imageUrl = uploaded.secure_url;
     }
 
-    const updated = await PostModel.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-    });
+    const updated = await PostModel.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true }
+    );
 
     res.json({
       ...updated._doc,
