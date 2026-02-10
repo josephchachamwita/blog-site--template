@@ -22,13 +22,13 @@ function App() {
   axios.defaults.withCredentials = true;
 
   // Backend URL
-  const BACKEND_URL = "https://blog-site-template.onrender.com";
+  //const BACKEND_URL = "https://blog-site-template.onrender.com";
 
   // Check for active session
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await axios.get(`${BACKEND_URL}/current_user`, { withCredentials: true });
+        const res = await axios.get(`/api/api/current_user`, { withCredentials: true });
         setUser(res.data); // { username, email }
       } catch (err) {
         console.log("No active session:", err);

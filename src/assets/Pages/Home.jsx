@@ -15,7 +15,7 @@ const Home = () => {
     const fetchPosts = async () => {
       try {
         const res = await axios.get(
-          'https://blog-site-template.onrender.com/getposts', // deployed backend
+          '/api/getposts', // deployed backend
           { withCredentials: true }
         );
         setPosts(res.data);

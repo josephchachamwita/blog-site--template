@@ -24,7 +24,7 @@ const Register = () => {
 
     try {
       const res = await axios.post(
-        "https://blog-site-template.onrender.com/register",
+        "/api/register",
         formData,
         { withCredentials: true }
       );
