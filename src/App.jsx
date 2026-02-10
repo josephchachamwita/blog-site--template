@@ -18,6 +18,7 @@ function App() {
   const [user, setUser] = useState({}); // { username, email }
 
   // Axios will send cookies with every request
+  
   axios.defaults.withCredentials = true;
 
   // Backend URL

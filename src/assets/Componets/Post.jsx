@@ -106,7 +106,7 @@ const Post = () => {
     try {
       await axios.delete(
         `https://blog-site-template.onrender.com/deletepost/${post._id}`,
-        { withCredentials: true }
+        { withCredentials: true}
       );
       navigate("/");
     } catch (err) {
