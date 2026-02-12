@@ -1,6 +1,17 @@
 {
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://blog-site-template.onrender.com/api/:path*" },
+    { "source": "/:path*", "destination": "https://blog-site-template.onrender.com/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
+
+
+
+
+
+
+
+
+
+
+
