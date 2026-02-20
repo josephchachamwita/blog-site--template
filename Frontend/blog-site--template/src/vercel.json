@@ -1,6 +1,6 @@
 {
-
-    "rewrites":[
-        {"source":"/(.*)","destination":"/"}
-    ]
+  "rewrites": [
+    { "source": "/:path*", "destination": "https://blog-site-template.onrender.com/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
